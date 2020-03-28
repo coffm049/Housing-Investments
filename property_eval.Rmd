@@ -1,0 +1,84 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+# Purpose:
+Create a method of evaluating potential properties for the profitability of different investment strategies based on the length of time the user is looking to invest for.
+
+# Goals:
+1. Create an estimation method for the profitability of a property for a given investment strategy
+2. Create estimates for multiple investment strategies and rank them form most to worst
+3. Use this method of analysis to identify exceptionally profitable properties that are currently on the market.
+
+
+load up the packages necessary for some good data exploration. Download the data set from St. Louis county housing.
+```{r include = FALSE}
+library(ggplot2)
+library(tidyr)
+library(dplyr)
+library(data.table)
+library(haven)
+library(jsonlite)
+setwd('/home/tracy/R/data_incubator_challenge/')
+df <- fread("stlouis.csv")
+
+```
+
+```{r}
+unique(df$PHYSCITY)
+```
+
+```{r} 
+# filter so only private owners in Duluth are left for initial methods
+df <- df %>%
+  filter(Ownership == "Private")%>%
+  filter(PHYSCITY == "Duluth" | PHYSCITY== "DULUTH MN") %>%
+  select(OBJECTID, ACREAGE, TPCLS1, LAND_EST, BUILDING, EstTotalValue, TAXABLE_BUILDING, TAXABLE_LAND_VALUE, TaxableMarketValue, NET_TAX)
+```
+
+# Long-term rental calculation
+Determine monthly cash flow.
+Expenses:
+-Tax = given in the dataset
+-Insurance= 120 needs a model. Right now I'm just locking in at $120 arbitrarily
+-Utilities= 200 needs a lookup. Right now locking in at $200
+-HOA = 0 in Duluth
+-Lawn snow = 40 make it user defined eventually if they want to do it themselves or hire out
+-Repairs=100 estimate
+-Capital expenditures= 100 savings for long term projects (black swans)
+-Manager= 60 User defined if they want someone to collect for them and deal with minor issues
+-PMI = 0 for down payments over 20%
+Income:
+-Rent= user defined (create a function that evaluates rent potential)
+-Others= TBD (maybe laundry etc.)
+
+```{r}
+Insurance <- 120
+Utilities <- 200
+HOA <- 0
+Lawn_snow <- 40
+Repairs <- 100
+Capex <- 100
+Manager <- 60
+PMI <- 0
+Rent <- 15000
+
+df <- df %>%
+  mutate(Cash_flow= Rent - (NET_TAX/12 + Insurance + Utilities + HOA + Lawn_snow+ Repairs + Capex + Manager + PMI)) %>%
+  mutate(Yearly_flow = Cash_flow * 12)
+```
+
+# Determine ROI
+Factors:
+-Down payment = user defined
+-Closing = 2-5% property value
+-Initial renovations = 0 user defined
+```{r}
+Down = 0.2 * df$EstTotalValue
+Closing = 0.05 * df$EstTotalValue
+Renovs  = 0
+
+df <- df %>%
+  mutate(First_year_ROI = Yearly_flow/(Down + Closing + Renovs))
+```
+
